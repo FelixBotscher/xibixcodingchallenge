@@ -25,6 +25,7 @@ namespace hikingpath
             //int n = int.Parse(args[1]);
             string filePathofMesh =
                 "/Users/felixbotscher/Documents/Xibix/xibixcodingchallenge/xibixcodingchallenge/mesh_x_sin_cos_10000[82][1].json"; // won't be needed later
+                //"/Users/felixbotscher/Documents/Xibix/xibixcodingchallenge/xibixcodingchallenge/mesh[1].json"; 
             int n = 50;
             //if(n < 1 || n > m.elements.Count) printResult(null);
             /*-----------------------Tests----------------------------
@@ -170,7 +171,13 @@ namespace hikingpath
          */
         public static List<Value> returnValue(List<Element> elements, List<Value> values)
         {
-            return values.FindAll(lambda => lambda.element_id == elements[0].id || lambda.element_id ==elements[1].id || lambda.element_id == elements[2].id);
+            List<Value> result = new List<Value>();
+            foreach (var element in elements)
+            {
+                result.Add(values.First(x => x.element_id == element.id));
+            }
+            return result;
+            //return values.FindAll(lambda => lambda.element_id == elements[0].id || lambda.element_id ==elements[1].id || lambda.element_id == elements[2].id);
         }
         /**
          * returns the highest neighbour Value element of the given list
