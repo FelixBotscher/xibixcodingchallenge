@@ -1,3 +1,160 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-Console.WriteLine("Hello, World!");
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace hikingpath
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            //creating Lists
+            List<Node> nodes = new List<Node>();
+            List<Element> elements = new List<Element>();
+            List<Value> values = new List<Value>();
+            List<Value> resultValues = new List<Value>(); //copy path into this file
+            string filePathofMesh =
+                "/Users/felixbotscher/Documents/Xibix/xibixcodingchallenge/xibixcodingchallenge/mesh[1].json";
+            
+            //-----------------------Tests----------------------------
+            //creating Objects and add them to the List
+            Node node1 = new Node(0, 0, 0);
+            Node node2 = new Node(1, 0, 1);
+            Node node3 = new Node(2, 0, 2);
+            int nodeNr1 = 0, nodeNr2 = 1, nodeNr3 = 2;
+            List<int> intListe = new List<int>();
+            intListe.Add(nodeNr1);
+            intListe.Add(nodeNr2);
+            intListe.Add(nodeNr3);
+            nodes.Add(node1);
+            nodes.Add(node2);
+            nodes.Add(node3);
+            Element element1 = new Element(0,intListe);
+            elements.Add(element1);
+            Value value1 = new Value(0, 2.4);
+            values.Add(value1);
+            //test the objects by printing them on the console
+            Console.WriteLine(node1);
+            Console.WriteLine(element1);
+            Console.WriteLine(value1);
+            // works great as expected 
+            //adding Lists to the Map Object
+            Map map = new Map(nodes,elements, values);
+            string filePath = "/Users/felixbotscher/Documents/Xibix/xibixcodingchallenge/xibixcodingchallenge/test.json";
+            
+            //DataSerializer dataSerializer = new DataSerializer();
+            //test serialization of List Objects first
+            string convert = JsonConvert.SerializeObject(nodes, Formatting.Indented);
+            Console.WriteLine(convert);
+            convert = JsonConvert.SerializeObject(element1, Formatting.Indented);
+            Console.WriteLine(convert);
+            convert = JsonConvert.SerializeObject(value1, Formatting.Indented);
+            Console.WriteLine(convert);
+            convert = JsonConvert.SerializeObject(map, Formatting.Indented);
+            Console.WriteLine(convert);
+            //string convert = JsonConvert.SerializeObject(map/values, Formatting.Indented);
+            using (StreamWriter file = File.CreateText(filePath))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(file, map);
+            }
+            Console.WriteLine("-----------------------------------");
+            // read file into a string and deserialize JSON to a type
+            Map testMap = JsonConvert.DeserializeObject<Map>(File.ReadAllText(filePath));
+                Console.WriteLine(testMap); // funktioniert
+
+            //----------------------Program--------------------------------------
+            Map meshMap = JsonConvert.DeserializeObject<Map>(File.ReadAllText(filePathofMesh));
+            int highestPoint = findHighestPoint(meshMap.values);
+            Console.WriteLine("Der höchste Punkt auf der Karte ist auf dem Element mit der ID {0}.",highestPoint);
+            Element elementStart = meshMap.elements.Find(x => x.id.Equals(highestPoint));
+            foreach (var node in meshMap.nodes)
+            {
+                Console.WriteLine(node.ToString());
+            }
+            foreach (var element in meshMap.elements)
+            {
+                Console.WriteLine(element.ToString());
+            }
+            foreach (var value in meshMap.values)
+            {
+                Console.WriteLine(value.ToString());
+            }
+            //find the neighbours
+            List<Element> neighbours = findNeighbours(meshMap.nodes, elementStart, meshMap.elements);
+            foreach (var i in neighbours)
+            {
+                Console.WriteLine(i.ToString());
+            }
+            
+            //change List<Elements> to List<Values> because we need to compare the value of Value
+            List<Value> valuesOfNeighbours = new List<Value>();
+            valuesOfNeighbours = returnValue(neighbours, values);
+            foreach (var v in valuesOfNeighbours)
+            {
+                Console.WriteLine(v.value);
+            }
+            valuesOfNeighbours.OrderByDescending(v => v.value);
+            List<Value> sortedNeighbours = new List<Value>();
+            sortedNeighbours = valuesOfNeighbours.OrderByDescending(val=>val.value).ToList();
+            foreach (var v in valuesOfNeighbours)
+            {
+                Console.WriteLine(v.ToString());
+            }
+        }
+        
+        /**
+         * function that returns the highest point of the map by using th max and first function on lists
+         */
+        public static int findHighestPoint(List<Value> values)
+        {
+            double greatesVal = values.Max(val => val.value);
+            Value v = values.First(x => x.value == greatesVal);
+            return v.element_id;
+        }
+
+        /**
+         * function that finds the three neighbours of a element 
+         */
+        public static List<Element> findNeighbours(List<Node> nodes, Element elementStart, List<Element> elements)
+        {
+            int nodeId1 = elementStart.nodes[0]; // first Value of List in Element of elementStart
+            int nodeId2 = elementStart.nodes[1]; // second Value of List in Element of elementStart
+            int nodeId3 = elementStart.nodes[2]; // third Value of List in Element of elementStart
+            List<Node> elementNodesList =
+                nodes.FindAll(lambda => lambda.id == nodeId1 || lambda.id == nodeId2 || lambda.id == nodeId3); //retrieve a List of Nodes of the elementStart
+            List<Element> oneElements = containsID(nodeId1, elements);
+            List<Element> oneElementsIntersectionTwo = containsID(nodeId2, oneElements);
+            List<Element> twoElements = containsID(nodeId2, elements);
+            List<Element> twoElementsIntersectionThree = containsID(nodeId3, twoElements);
+            List<Element> threeElements = containsID(nodeId3, elements);
+            List<Element> threeElementsIntersectionOne = containsID(nodeId1, threeElements);
+
+            List<Element> result = oneElementsIntersectionTwo.Concat(twoElementsIntersectionThree)
+                .Concat(threeElementsIntersectionOne).ToList();
+            result = result.Where(x => x.id != elementStart.id).ToList();
+            return result;
+        }
+        
+        /**
+         * Betrachtet eine Liste von Elementen und prüft ob die gegebene nodeId gleich einer von den NodeIds des Elementes ist
+         * Rückgabeparameter ist dann eine Liste an Elementen vom Typ Element
+         */
+        public static List<Element> containsID(int nodeId, List<Element> elements)
+        {
+            return elements.FindAll(elem => elem.nodes[0] == nodeId || elem.nodes[1] == nodeId || elem.nodes[2] == nodeId);
+        }
+        
+        public static List<Value> returnValue(List<Element> elements, List<Value> values)
+        {
+            return values.FindAll(lambda => lambda.element_id == elements[0].id || lambda.element_id ==elements[1].id || lambda.element_id == elements[2].id);
+        }
+    }
+}
